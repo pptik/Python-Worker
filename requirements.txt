@@ -1,0 +1,5 @@
+json
+paho-mqtt
+pymongo
+mysql-connector-python
+python-dotenv
