@@ -92,6 +92,8 @@ void reconnect() {
   }
 }
 
+//Bagian Setup Wifi -Fizar
+
 void setup_wifi() {
   delay(10);
   preferences.begin("my-app", false);
