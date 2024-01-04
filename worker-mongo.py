@@ -14,20 +14,20 @@ MQTT_USERNAME = os.getenv('MQTT_USERNAME')
 MQTT_PASSWORD = os.getenv('MQTT_PASSWORD')
 
 # MongoDB connection details
-MONGO_URI = os.getenv('MONGO_URI')
-DB_NAME = os.getenv('DB_NAME', 'halo')
+# MONGO_URI = os.getenv('MONGO_URI')
+# DB_NAME = os.getenv('DB_NAME', 'halo')
 
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client[DB_NAME]
+# mongo_client = MongoClient(MONGO_URI)
+# db = mongo_client[DB_NAME]
 
-def save_to_database(sensor_type, data):
-    collection = db[sensor_type]
-    document = {
-        "data": data,
-        "createdAt": datetime.now()
-    }
-    collection.insert_one(document)
-    print(f"Success: Inserted data into {sensor_type}")
+# def save_to_database(sensor_type, data):
+#     collection = db[sensor_type]
+#     document = {
+#         "data": data,
+#         "createdAt": datetime.now()
+#     }
+#     collection.insert_one(document)
+#     print(f"Success: Inserted data into {sensor_type}")
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
@@ -38,7 +38,8 @@ def on_message(client, userdata, msg):
         message = json.loads(msg.payload.decode())
         sensor_type = message['type']
         data = message['data']
-        save_to_database(sensor_type, data)
+        print(f"Tipe sensor : {sensor_type}, data : {data}")
+        # save_to_database(sensor_type, data)
     except json.JSONDecodeError:
         print("Error decoding JSON")
 
