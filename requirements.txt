@@ -1,4 +1,3 @@
-json
 paho-mqtt
 pymongo
 mysql-connector-python
