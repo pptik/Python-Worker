@@ -13,9 +13,9 @@ MQTT_TOPIC = os.getenv('MQTT_TOPIC', 'sensor')
 MQTT_USERNAME = os.getenv('MQTT_USERNAME')
 MQTT_PASSWORD = os.getenv('MQTT_PASSWORD')
 
-#  MongoDB connection details
-# MONGO_URI = os.getenv('MONGO_URI')
-# DB_NAME = os.getenv('DB_NAME', 'halo')
+# MongoDB connection details
+MONGO_URI = os.getenv('MONGO_URI')
+DB_NAME = os.getenv('DB_NAME', 'halo')
 
 # mongo_client = MongoClient(MONGO_URI)
 # db = mongo_client[DB_NAME]
@@ -38,8 +38,7 @@ def on_message(client, userdata, msg):
         message = json.loads(msg.payload.decode())
         sensor_type = message['type']
         data = message['data']
-        print (f"Tipe Sensor : {sensor_type}, data : {data}")
-        # save_to_database(sensor_type, data)
+        save_to_database(sensor_type, data)
     except json.JSONDecodeError:
         print("Error decoding JSON")
 
