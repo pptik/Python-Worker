@@ -104,8 +104,8 @@ A:
       Serial.print(".");
       if (millis() - start_wifi_millis > wifi_timeout) {
         WiFi.disconnect(true, true);
-        Serial.println("Could't connect to Wi-Fi...");
-        SerialBT.println("Could't connect to Wi-Fi...");
+        Serial.println("Couldn't connect to Wi-Fi...");
+        SerialBT.println("Couldn't connect to Wi-Fi...");
         digitalWrite(LED_INDICATOR, HIGH);
         delay(200);
         digitalWrite(LED_INDICATOR, LOW);
@@ -161,7 +161,7 @@ A:
       Serial.print(".");
       if (millis() - start_wifi_millis > wifi_timeout) {
         WiFi.disconnect(true, true);
-        Serial.println("Could't connect to Wi-Fi...");
+        Serial.println("Couldn't connect to Wi-Fi...");
         digitalWrite(LED_INDICATOR, HIGH);
         delay(200);
         digitalWrite(LED_INDICATOR, LOW);

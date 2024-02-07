@@ -14,7 +14,7 @@ void setup() {
   digitalWrite(BUZZER, LOW);
   digitalWrite(LED_INDICATOR, LOW);
   Serial.begin(115200);
-  strcpy(defaultpublish, guid);
+  strcpy(subscribe_mqtt, guid);
   strcpy(bluetooth_name, "RFID-BT-");
   strcat(bluetooth_name, client_id.c_str());
   setup_wifi();
