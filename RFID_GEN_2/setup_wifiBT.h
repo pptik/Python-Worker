@@ -5,15 +5,25 @@
 #include "mac_address.h"
 
 void scan_wifi_networks() {
+  DynamicJsonDocument nonetwork(20);
+  nonetwork["data"] = "no network found";
+  String no_network;
+  serializeJson(nonetwork, no_network);
+  DynamicJsonDocument network(20);
+  network["data"] = "network found";
+  String networkfnd;
+  serializeJson(network, networkfnd);
   WiFi.mode(WIFI_STA);
   int n = WiFi.scanNetworks();
   if (n == 0) {
-    SerialBT.println("no networks found");
+    SerialBT.println(no_network);
   } else {
     SerialBT.println();
-    SerialBT.print(n);
-    SerialBT.println(" networks found");
+    SerialBT.println(networkfnd);
     delay(1000);
+    DynamicJsonDocument scanwifi(256);
+    String jsonscanWifi;
+    JsonArray scanWifiArray = scanwifi.createNestedArray("data");
     for (int i = 0; i < n; ++i) {
       ssids_array[i + 1] = WiFi.SSID(i);
       Serial.print(i + 1);
@@ -21,33 +31,30 @@ void scan_wifi_networks() {
       Serial.println(ssids_array[i + 1]);
       network_string = i + 1;
       network_string = network_string + ": " + WiFi.SSID(i) + " (Strength:" + WiFi.RSSI(i) + ")";
-      SerialBT.println(network_string);
+      scanWifiArray.add(WiFi.SSID(i));
     }
-    SerialBT.println("Please enter the number for your Wi-Fi");
+
+    serializeJson(scanwifi, jsonscanWifi);
+    SerialBT.println(jsonscanWifi);
     Serial.println("Please enter the number for your Wi-Fi");
   }
 }
 
 void callback(esp_spp_cb_event_t event, esp_spp_cb_param_t* param) {
   if (event == ESP_SPP_SRV_OPEN_EVT) {
-    SerialBT.println("Scanning Wi-Fi networks");
     Serial.println("Scanning Wi-Fi networks");
     scan_wifi_networks();
   }
 }
 
-void callback_show_ip(esp_spp_cb_event_t event, esp_spp_cb_param_t* param) {
-  if (event == ESP_SPP_SRV_OPEN_EVT) {
-    SerialBT.print("ESP32 IP: ");
-    SerialBT.println(WiFi.localIP());
-    bluetooth_disconnect = true;
-  }
-}
-
 void disconnect_bluetooth() {
   delay(1000);
+  DynamicJsonDocument disconnect(20);
+  disconnect["data"] = "Bluetooth disconnecting...";
+  String bt_disconnect;
+  serializeJson(disconnect, bt_disconnect);
   Serial.println("BT stopping");
-  SerialBT.println("Bluetooth disconnecting...");
+  SerialBT.println(bt_disconnect);
   delay(1000);
   SerialBT.flush();
   SerialBT.disconnect();
@@ -82,7 +89,6 @@ A:
       int client_wifi_ssid_id = SerialBT.readString().toInt();
       client_wifi_ssid = ssids_array[client_wifi_ssid_id];
     }
-    SerialBT.println("Please enter your Wi-Fi password");
     Serial.println("Please enter your Wi-Fi password");
     while (!(SerialBT.available())) {
       digitalWrite(LED_INDICATOR, HIGH);
@@ -95,7 +101,6 @@ A:
       client_wifi_password.trim();
     }
     delay(500);
-    SerialBT.println("Please wait for Wi-Fi connection...");
     Serial.println("Please wait for Wi_Fi connection...");
     WiFi.begin(client_wifi_ssid.c_str(), client_wifi_password.c_str());
     start_wifi_millis = millis();
@@ -118,7 +123,11 @@ A:
         goto A;
       }
     }
-    SerialBT.println("Connected");
+    DynamicJsonDocument connected(20);
+    connected["data"] = "Connected";
+    String wifi_connected;
+    serializeJson(connected, wifi_connected);
+    SerialBT.println(wifi_connected);
     Serial.println("Connected");
     while (!(SerialBT.available())) {
       digitalWrite(LED_INDICATOR, HIGH);
@@ -132,12 +141,18 @@ A:
       printMACAddress();
       Serial.print("ESP32 IP: ");
       Serial.println(WiFi.localIP());
-      SerialBT.print("ESP32 IP: ");
-      SerialBT.println(WiFi.localIP());
+      DynamicJsonDocument ip3(50);
+      ip3["data"] = WiFi.localIP().toString();
+      serializeJson(ip3, SerialBT);
+      SerialBT.println();
       preferences.putString("pref_ssid", client_wifi_ssid);
       preferences.putString("pref_pass", client_wifi_password);
       bluetooth_disconnect = true;
-      SerialBT.println("Device Activated");
+      DynamicJsonDocument act(20);
+      act["data"] = "Device Activated";
+      String activated;
+      serializeJson(act, activated);
+      SerialBT.println(activated);
       Serial.println("Device Activated");
     } else {
       Serial.print("mobileActivated : ");
@@ -173,14 +188,16 @@ A:
         setup_wifi();
       }
     }
-    SerialBT.println("Connected");
+    DynamicJsonDocument connected1(20);
+    connected1["data"] = "Connected";
+    String wifi_connected1;
+    serializeJson(connected1, wifi_connected1);
+    SerialBT.println(wifi_connected1);
     Serial.println("Connected");
     digitalWrite(LED_INDICATOR, HIGH);
     printMACAddress();
     Serial.print("ESP32 IP: ");
     Serial.println(WiFi.localIP());
-    SerialBT.print("ESP32 IP: ");
-    SerialBT.println(WiFi.localIP());
     bluetooth_disconnect = true;
   }
   preferences.end();

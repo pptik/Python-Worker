@@ -26,6 +26,7 @@ void setup() {
   mfrc522.PCD_Init();
 }
 
+
 void loop() {
   if (WiFi.status() != WL_CONNECTED) setup_wifi();
   if (bluetooth_disconnect) {
@@ -110,3 +111,4 @@ void loop() {
     digitalWrite(LED_INDICATOR, HIGH);
   }
 }
+

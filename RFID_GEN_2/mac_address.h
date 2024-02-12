@@ -20,12 +20,14 @@ String getMACAddress() {
 }
 
 void printMACAddress() {
+  StaticJsonDocument<50> macaddress;
   String MAC = getMACAddress();
-
+  macaddress["data"] = MAC;
+  serializeJson(macaddress, SerialBT);
+  SerialBT.println();
   Serial.print("BT MAC: ");
   Serial.println(MAC);
-  SerialBT.print("BT MAC: ");
-  SerialBT.println(MAC);
 }
+
 
 #endif
