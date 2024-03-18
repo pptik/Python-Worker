@@ -76,6 +76,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.println(streamingEnabled);
 }
 
+// Bagian Void Reconnect Tertanda Zalfa (04 Januari 2024)
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+
+=======
+>>>>>>> 72fd62a451e619fc911e942fcd7d914811702ed5
 paho-mqtt
 pymongo
 mysql-connector-python
