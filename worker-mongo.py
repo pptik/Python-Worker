@@ -38,7 +38,7 @@ def on_message(client, userdata, msg):
         message = json.loads(msg.payload.decode())
         sensor_type = message['type']
         data = message['data']
-        save_to_database(sensor_type, data)
+        # save_to_database(sensor_type, data)
     except json.JSONDecodeError:
         print("Error decoding JSON")
 
