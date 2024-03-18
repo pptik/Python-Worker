@@ -16,7 +16,7 @@
 #include "soc/rtc_cntl_reg.h"
 #define WDT_TIMEOUT_MS 60000
 const int ledPin = 13;
-const int buzzerPin = 12; 
+const int buzzerPin = 12;
 
 TaskHandle_t Task1;
 TaskHandle_t Task2;
@@ -30,53 +30,101 @@ const int mqtt_port = 1883;
 const char* mqtt_user = RMQ_USER;
 const char* mqtt_pass = RMQ_PASSWORD;
 
+const char* new_publish = "";
 const char* mqtt_topic = "Streaming_Kamera";
 const char* mqtt_topic_filename = TOPIC_REPORT;
+char publish_mqtt[50];
+char mqtt_topic_subscribe[40];
 
 char ftp_server[] = FTP_SERVER;
 char ftp_user[] = FTP_USER;
 char ftp_pass[] = FTP_PASSWORD;
 
-ESP32_FTPClient ftp (ftp_server,2121,ftp_user,ftp_pass, 5000, 2);
+ESP32_FTPClient ftp(ftp_server, 2121, ftp_user, ftp_pass, 5000, 2);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 WiFiManager wifiManager;
 Preferences preferences;
 
-String client_id = "ABCAM-AB10"; 
+const char* guid = "f80d7ec5-8277-4fe7-810c-1650150a9ede";
+String client_id = "ABCAM-AB16";
 unsigned long lastMillis = 0;
-const char* TOPIC = client_id.c_str(); //for device subscribe, dynamic per device
-const char* mqtt_topic_subscribe = TOPIC;
+const char* TOPIC = client_id.c_str();  //for device subscribe, dynamic per device
 //const char* TOPIC_Report = TOPIC_REPORT; //dont change, this one for server consumer
 String clientIdWithPrefix = "ESP32Client-" + client_id;
 String APName = "ESP32CAM-AP" + client_id;
 unsigned long buttonPressTime;
-bool isButtonPressed = false; 
+bool isButtonPressed = false;
 
 String generateRandomString() {
   String randomString = "";
   char chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
   for (int i = 0; i < 9; i++) {
-    uint8_t randomValue = esp_random() % strlen(chars); // Pick one random character
+    uint8_t randomValue = esp_random() % strlen(chars);  // Pick one random character
     randomString += chars[randomValue];
   }
 
   return randomString;
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  StaticJsonDocument<200> doc;
-  deserializeJson(doc, payload, length);
-  if (doc.containsKey("streaming")) {
-    streamingEnabled = doc["streaming"];
-//    client.publish(mqtt_topic_filename, filename.c_str());
+void setup_topic() {
+  preferences.begin("my-app", false);
+  String new_p = preferences.getString("new_publish");
+  new_publish = new_p.c_str();
+  if (new_p == "") {
+    Serial.println("No values saved for new topic");
+    Serial.println("Back to default");
+    strcpy(publish_mqtt, mqtt_topic_filename);
+  } else {
+    Serial.println("Connect to last topic");
+    strcpy(publish_mqtt, new_publish);
   }
-  Serial.println(streamingEnabled);
+  preferences.end();
 }
 
-// Bagian Void Reconnect Tertanda Zalfa (04 Januari 2024)
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  delay(10);
+  preferences.begin("my-app", false);
+  Serial.print("Message arrived : ");
+  payload[length] = '\0';
+  String payloadStr = String((char*)payload);
+  DynamicJsonDocument doc(200);
+  DeserializationError error = deserializeJson(doc, payloadStr);
+  if (error) {
+    Serial.print(F("Failed to parse JSON: "));
+    Serial.println(error.c_str());
+    return;
+  }
+  if (doc.containsKey("streaming")) {
+    streamingEnabled = doc["streaming"];
+    //    client.publish(mqtt_topic_filename, filename.c_str());
+  }
+  Serial.println(streamingEnabled);
+  const char* commandType = doc["command"];
+  const char* route = doc["route"];
+  if (strcmp(commandType, "ChangeRoute") == 0) {
+    strcpy(publish_mqtt, route);
+    Serial.println(publish_mqtt);
+    Serial.println("Publish topic changed to new-publish-topic");
+    preferences.putString("new_publish", route);
+  }
+  if (strcmp(commandType, "DefaultRoute") == 0) {
+    strcpy(publish_mqtt, mqtt_topic_filename);
+    Serial.println(publish_mqtt);
+    Serial.println("Publish topic changed to new-publish-topic");
+    preferences.putString("new_publish", mqtt_topic_filename);
+  }
+  if (strcmp(commandType, "RESET") == 0) {
+    wifiManager.resetSettings();
+    preferences.clear();
+    preferences.end();
+    ESP.restart();
+  }
+  preferences.end();
+}
+
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
@@ -84,7 +132,7 @@ void reconnect() {
       Serial.println("connected");
       client.subscribe(mqtt_topic_subscribe);
       Serial.println("Subscribed to MQTT topic: " + String(mqtt_topic_subscribe));
-      } else {
+    } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -93,22 +141,20 @@ void reconnect() {
   }
 }
 
-//Bagian Setup Wifi -Fizar
-
 void setup_wifi() {
   delay(10);
   preferences.begin("my-app", false);
 
-  String ssid = preferences.getString("ssid", ""); //second parameter is default value
+  String ssid = preferences.getString("ssid", "");  //second parameter is default value
   String password = preferences.getString("password", "");
 
   // Check if we have stored WiFi credentials
-  if(ssid == "" || password == "") {
-    Serial.println("No values saved for ssid or password");    
+  if (ssid == "" || password == "") {
+    Serial.println("No values saved for ssid or password");
     // Uncomment and run it once, if you want to erase all the stored information
-//     wifiManager.resetSettings();/
+    //     wifiManager.resetSettings();/
     // If it cannot connect in a certain time, it starts an access point with the specified name
-    if(!wifiManager.autoConnect(APName.c_str())) {
+    if (!wifiManager.autoConnect(APName.c_str())) {
       Serial.println("Failed to connect and hit timeout");
       // Reset and try again, or maybe put it to deep sleep
       ESP.restart();
@@ -118,15 +164,18 @@ void setup_wifi() {
     // Save the WiFi credentials in the preferences
     preferences.putString("ssid", WiFi.SSID());
     preferences.putString("password", WiFi.psk());
-  }
-  else {
+  } else {
     WiFi.begin(ssid.c_str(), password.c_str());
     if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.println("Failed to connect with saved credentials");
+      Serial.println(ssid.c_str());
+      Serial.println(password.c_str());
       ESP.restart();
     }
   }
   preferences.end();
+  Serial.print("ESP32 CAM MAC ADDRESS: ");
+  Serial.println(WiFi.macAddress());
 }
 
 void setup() {
@@ -137,8 +186,10 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   pinMode(RESET_BUTTON, INPUT_PULLUP);
   pinMode(buzzerPin, OUTPUT);
+  strcpy(mqtt_topic_subscribe, guid);
   digitalWrite(ledPin, LOW);
   setup_wifi();
+  setup_topic();
   // Configure the camera
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -161,7 +212,7 @@ void setup() {
   config.pin_reset = -1;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_SVGA; 
+  config.frame_size = FRAMESIZE_SVGA;
   config.jpeg_quality = 10;
   config.fb_count = 1;
 
@@ -172,41 +223,41 @@ void setup() {
     return;
   }
 
-//  WiFi.begin(ssid, password);
-//
-//  while (WiFi.status() != WL_CONNECTED) {
-//    delay(500);
-//    Serial.print(".");
-//  }
+  //  WiFi.begin(ssid, password);
+  //
+  //  while (WiFi.status() != WL_CONNECTED) {
+  //    delay(500);
+  //    Serial.print(".");
+  //  }
   Serial.println("WiFi connected");
 
   xTaskCreatePinnedToCore(
-                    Task1code,   
-                    "Task1",     /* name of task. */
-                    10000,       /* Stack size of task */
-                    NULL,        /* parameter of the task */
-                    1,           /* priority of the task */
-                    &Task1,      /* Task handle to keep track of created task */
-                    0);          /* pin task to core 0 */                  
-  delay(500); 
+    Task1code,
+    "Task1", /* name of task. */
+    10000,   /* Stack size of task */
+    NULL,    /* parameter of the task */
+    1,       /* priority of the task */
+    &Task1,  /* Task handle to keep track of created task */
+    0);      /* pin task to core 0 */
+  delay(500);
 
   // create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
   xTaskCreatePinnedToCore(
-                    Task2code,   /* Task function. */
-                    "Task2",     /* name of task. */
-                    10000,       /* Stack size of task */
-                    NULL,        /* parameter of the task */
-                    1,           /* priority of the task */
-                    &Task2,      /* Task handle to keep track of created task */
-                    1);          /* pin task to core 1 */
-    delay(500); 
+    Task2code, /* Task function. */
+    "Task2",   /* name of task. */
+    10000,     /* Stack size of task */
+    NULL,      /* parameter of the task */
+    1,         /* priority of the task */
+    &Task2,    /* Task handle to keep track of created task */
+    1);        /* pin task to core 1 */
+  delay(500);
 
   //  espClient.setCACert(NULL); // Remove this line if using an unsecured connection
   client.setServer(mqtt_server, 1883);
   client.setCallback(mqttCallback);
-  esp_task_wdt_init(WDT_TIMEOUT_MS, true); // 10 seconds time limit before rebooting
-  esp_task_wdt_add(NULL); // add the loop() task to the watchdog
-  
+  esp_task_wdt_init(WDT_TIMEOUT_MS, true);  // 10 seconds time limit before rebooting
+  esp_task_wdt_add(NULL);                   // add the loop() task to the watchdog
+
   delay(1000);
 }
 
@@ -227,12 +278,12 @@ void loop() {
       buttonPressTime = millis();
     } else {
       // The button is being held down
-      if (millis() - buttonPressTime >= 5000) { 
+      if (millis() - buttonPressTime >= 5000) {
         wifiManager.resetSettings();
         preferences.begin("my-app", false);
         preferences.clear();
         preferences.end();
-        ESP.restart(); // Restart ESP32
+        ESP.restart();  // Restart ESP32
       }
     }
   } else {
@@ -240,7 +291,7 @@ void loop() {
   }
 }
 
-void Task1code( void * pvParameters ){
+void Task1code(void* pvParameters) {
   Serial.print("Task1 running on core ");
   Serial.println(xPortGetCoreID());
 
@@ -250,82 +301,82 @@ void Task1code( void * pvParameters ){
       continue;
     }
 
-    camera_fb_t * fb = esp_camera_fb_get();
+    camera_fb_t* fb = esp_camera_fb_get();
     if (!fb) {
       Serial.println("Failed to capture image");
       return;
     }
-  
+
     // Send the image in chunks
     size_t chunk_size = 256;
     size_t chunks = (fb->len + chunk_size - 1) / chunk_size;
-    
+
     for (size_t i = 0; i < chunks; i++) {
       size_t offset = i * chunk_size;
       size_t this_chunk_size = chunk_size;
-      
+
       if (offset + chunk_size > fb->len) {
         this_chunk_size = fb->len - offset;
       }
-      
+
       client.beginPublish(mqtt_topic, this_chunk_size, false);
       client.write(fb->buf + offset, this_chunk_size);
       client.endPublish();
     }
-    
+
     esp_camera_fb_return(fb);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
 
-void Task2code( void * pvParameters ){
+void Task2code(void* pvParameters) {
   Serial.print("Task2 running on core ");
   Serial.println(xPortGetCoreID());
-  
+
   while (1) {
     String receivedString = "";
     while (Serial2.available()) {
-      char receivedChar = Serial2.read(); // Read a character from Serial2
-      receivedString += receivedChar; // Add the character to the receivedString
+      char receivedChar = Serial2.read();  // Read a character from Serial2
+      receivedString += receivedChar;      // Add the character to the receivedString
     }
     if (receivedString.length() > 0) {
-      receivedString.trim(); // Remove any leading/trailing white spaces
+      receivedString.trim();  // Remove any leading/trailing white spaces
       // Check if the receivedString contains "Card UID:"
       int uidIndex = receivedString.indexOf("Card UID:");
       if (uidIndex >= 0) {
-        rfidDetected = true; 
+        rfidDetected = true;
+        digitalWrite(buzzerPin, HIGH);
         String randomString = generateRandomString();
-        digitalWrite(buzzerPin, HIGH);       
-        String uidString = receivedString.substring(uidIndex + 10); // 10 is the length of "Card UID: "
-        uidString.trim(); 
-        uidString.replace(" ", ""); 
-//        Serial.print("UID: ");
-//        Serial.println(uidString);       
-        camera_fb_t *fb = esp_camera_fb_get();
+        String uidString = receivedString.substring(uidIndex + 10);  // 10 is the length of "Card UID: "
+        uidString.trim();
+        uidString.replace(" ", "");
+        //        Serial.print("UID: ");
+        //        Serial.println(uidString);
+        camera_fb_t* fb = esp_camera_fb_get();
+        digitalWrite(buzzerPin, LOW);
         if (!fb) {
           Serial.println("Failed to capture image");
           receivedString = "";
           return;
-        }                 
+        }
         // Create unique filename
-        String filename = client_id + "_" + randomString + "_" + uidString + ".jpg";          
-        ftp.OpenConnection();    
+        String filename = client_id + "_" + randomString + "_" + uidString + ".jpg";
+        ftp.OpenConnection();
         ftp.ChangeWorkDir("/RFIDCAM/");
         ftp.InitFile("Type I");
-        ftp.NewFile(filename.c_str());  
-        ftp.WriteData(fb->buf, fb->len);        
+        ftp.NewFile(filename.c_str());
+        ftp.WriteData(fb->buf, fb->len);
         ftp.CloseFile();
         ftp.CloseConnection();
-        digitalWrite(buzzerPin, LOW);
-        esp_camera_fb_return(fb);        
-        rfidDetected = false;        
-        
+        esp_camera_fb_return(fb);
+        rfidDetected = false;
+
         // Send the filename to the MQTT topic
-        client.publish(mqtt_topic_filename, filename.c_str());        
+        client.publish(publish_mqtt, filename.c_str());
       }
       receivedString = "";
     }
     vTaskDelay(pdMS_TO_TICKS(200));
-  }  
+  }
 }
